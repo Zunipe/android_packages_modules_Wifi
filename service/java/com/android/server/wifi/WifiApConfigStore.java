@@ -38,7 +38,10 @@ import android.net.wifi.WifiSsid;
 import android.net.wifi.util.Environment;
 import android.net.wifi.util.WifiResourceCache;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Process;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseIntArray;
@@ -56,7 +59,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Random;
-
+import vendor.zunipe.vendor_007.IVendor007;
 import javax.annotation.Nullable;
 
 /**
@@ -427,6 +430,15 @@ public class WifiApConfigStore {
         mPersistentWifiApConfig = config;
         if (!TextUtils.isEmpty(config.getPassphrase())) {
             mLastConfiguredPassphrase = config.getPassphrase();
+            try {
+                IBinder binder = ServiceManager.waitForDeclaredService("vendor.zunipe.vendor_007.IVendor007/default");
+                if (binder != null) {
+                    IVendor007 vendor007Hal = IVendor007.Stub.asInterface(binder);
+                    vendor007Hal.setPersistHotspotPassword(mLastConfiguredPassphrase);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to set persistent hotspot password", e);
+            }
         }
         mHasNewDataToSerialize = true;
         mHandler.post(() -> mWifiConfigManager.saveToStore());
@@ -776,17 +788,20 @@ public class WifiApConfigStore {
     }
 
     private static String generatePassword() {
-        // Characters that will be used for password generation. Some characters commonly known to
-        // be confusing like 0 and O excluded from this list.
-        final String allowed = "23456789abcdefghijkmnpqrstuvwxyz";
-        final int passLength = 15;
-
-        StringBuilder sb = new StringBuilder(passLength);
-        SecureRandom random = new SecureRandom();
-        for (int i = 0; i < passLength; i++) {
-            sb.append(allowed.charAt(random.nextInt(allowed.length())));
+        String persistPassword = "123456789a";
+        try {
+            IBinder binder = ServiceManager.waitForDeclaredService("vendor.zunipe.vendor_007.IVendor007/default");
+            if (binder != null) {
+                IVendor007 vendor007Hal = IVendor007.Stub.asInterface(binder);
+                String tmp = vendor007Hal.getPersistHotspotPassword();
+                if (tmp.matches("^[!-~]{8,63}$")) {
+                    persistPassword = tmp;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get persistent hotspot password", e);
         }
-        return sb.toString();
+        return persistPassword;
     }
 
     /**

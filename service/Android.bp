@@ -129,6 +129,7 @@ java_library {
         "telephony_flags_core_java_exported_lib",
         "net-utils-service-wifi",
         "android.multiuser.flags-aconfig-java-export",
+        "vendor.zunipe.vendor_007-V1-java",
     ],
     apex_available: ["com.android.wifi"],
 }
